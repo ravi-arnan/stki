@@ -228,12 +228,19 @@ def _tokenize(teks: str):
 
 
 def get_bm25():
-    """Bangun (sekali) indeks BM25 dari teks korpus."""
+    """Bangun (sekali) indeks BM25 dari label sumber + teks korpus.
+
+    Label `sumber` (mis. "Permendagri 8/2024 - PKB & BBN-KB 2024") ikut diindeks
+    agar tahun & jenis dokumen kanonik jadi sinyal leksikal yang kuat. Ini
+    membedakan dokumen yang nyaris identik tapi beda tahun (D6/D7/D8): query
+    "PKB 2024" cocok ke label D7 (ada 'pkb' DAN '2024') ketimbang D9 (PMK 8/2024,
+    ada '2024' tapi tanpa 'pkb').
+    """
     global _bm25
     if _bm25 is None:
         from rank_bm25 import BM25Okapi
         korpus, _ = load_index(verbose=False)
-        _bm25 = BM25Okapi([_tokenize(p["teks"]) for p in korpus])
+        _bm25 = BM25Okapi([_tokenize(p["sumber"] + " " + p["teks"]) for p in korpus])
     return _bm25
 
 
