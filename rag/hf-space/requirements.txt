@@ -9,3 +9,4 @@ gradio
 pdfplumber
 numpy
 pandas
+rank-bm25

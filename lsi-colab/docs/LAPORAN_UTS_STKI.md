@@ -606,7 +606,7 @@ Perbedaan kunci dengan VSM/TF-IDF terletak pada representasi. TF-IDF bersifat *s
 
 ## 7.3 Contoh & Alur Implementasi
 
-Detail alur langkah demi langkah dipaparkan terpisah pada dokumen [`laporan_rag_1.0.md`](laporan_rag_1.0.md). Korpus bertema **hukum pajak** terdiri atas sepuluh PDF (D1–D10): Undang-Undang, PMK, Permendagri, dan modul akademik mengenai PBB serta Pajak Kendaraan Bermotor. Tiap PDF diekstrak dengan `pdfplumber`, dipecah menjadi passage berukuran bervariasi, difilter dari noise, lalu di-embed menjadi vektor 768 dimensi (~617 passage informatif).
+Detail alur langkah demi langkah dipaparkan terpisah pada dokumen [`laporan_rag_1.0.md`](../../rag/laporan_rag_1.0.md). Korpus bertema **hukum pajak** terdiri atas sepuluh PDF (D1–D10): Undang-Undang, PMK, Permendagri, dan modul akademik mengenai PBB serta Pajak Kendaraan Bermotor. Tiap PDF diekstrak dengan `pdfplumber`, dipecah menjadi passage berukuran bervariasi, difilter dari noise, lalu di-embed menjadi vektor 768 dimensi (~617 passage informatif).
 
 ## 7.4 Hasil Output Python
 
@@ -620,7 +620,7 @@ Detail alur langkah demi langkah dipaparkan terpisah pada dokumen [`laporan_rag_
 - **Dari meranking ke menjawab.** Inilah lompatan utama: RAG mengubah keluaran sistem dari daftar dokumen menjadi jawaban siap-pakai yang tetap dapat ditelusuri lewat sitasi.
 - **Sentence-BERT krusial.** Percobaan awal dengan IndoBERT mentah + mean pooling membuat query PKB tertarik ke dokumen PBB; versi Sentence-BERT memperbaikinya.
 - **Grounding menekan halusinasi.** LLM diinstruksikan menjawab hanya dari konteks dan menyatakan jujur bila informasi tidak ada, sehingga jawaban tidak mengarang pasal atau angka.
-- **Keterbatasan pada query komparatif.** Pertanyaan "dasar pengenaan PKB tahun 2025 dibanding 2023" dijawab "tidak ditemukan" walau datanya ada. Penyebabnya: token tahun ("2025"/"2023") menyetir embedding ke D5 (Modul PBB) yang padat angka tahun, dan pertanyaan komparatif menuntut dua dokumen sekaligus yang sulit ditangani dense retrieval satu-vektor. Query tanpa token tahun (`dasar pengenaan PKB`) justru menemukan D6/D7/D8 dengan tepat — jadi ini keterbatasan retrieval, bukan bug. Rincian di [`laporan_rag_1.0.md`](laporan_rag_1.0.md) Subbab 7.3.4.
+- **Keterbatasan pada query komparatif.** Pertanyaan "dasar pengenaan PKB tahun 2025 dibanding 2023" dijawab "tidak ditemukan" walau datanya ada. Penyebabnya: token tahun ("2025"/"2023") menyetir embedding ke D5 (Modul PBB) yang padat angka tahun, dan pertanyaan komparatif menuntut dua dokumen sekaligus yang sulit ditangani dense retrieval satu-vektor. Query tanpa token tahun (`dasar pengenaan PKB`) justru menemukan D6/D7/D8 dengan tepat — jadi ini keterbatasan retrieval, bukan bug. Rincian di [`laporan_rag_1.0.md`](../../rag/laporan_rag_1.0.md) Subbab 7.3.4.
 - **Opsi perbaikan (lanjutan).** Hybrid **BM25 + dense** (menangkap singkatan/tahun secara persis sekaligus makna — menyambung ke Bab 3–4), *query expansion* singkatan, filter metadata tahun, atau dekomposisi pertanyaan komparatif menjadi sub-query.
 - **Keterbatasan lain.** Bila passage relevan tidak masuk `TOP_K`, jawaban bisa kurang lengkap; tabel tarif yang difilter membuat pertanyaan menuntut angka tarif spesifik sulit dijawab; serta pemanggilan LLM bersifat berbayar dan butuh internet.
 

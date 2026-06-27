@@ -17,6 +17,7 @@ sentence-transformers
 sentencepiece
 openai
 python-dotenv
+rank-bm25
 gradio
 
 # Lingkungan notebook

@@ -41,7 +41,7 @@ Implementasi tujuh metode Information Retrieval untuk korpus berbahasa Indonesia
 | 4 | Vector Space Model (VSM) | Representasi vektor dengan cosine similarity | `STKI_TFIDF_VSM_Final.ipynb` |
 | 5 | Extractive Summarization | Pemilihan kalimat dengan skor TF-IDF tertinggi | `STKI_TFIDF_Summarization.ipynb` |
 | 6 | MinHash dan LSH | Estimasi Jaccard probabilistik untuk deteksi dokumen mirip | `STKI_MinHash.ipynb` |
-| 7 | RAG (IndoBERT + LLM) | Retrieval semantik dengan embedding IndoBERT lalu jawaban kontekstual dari GPT beserta sitasi dokumen | `STKI_RAG_LLM.ipynb` |
+| 7 | RAG (IndoBERT + LLM) | Retrieval hybrid (BM25 + embedding IndoBERT) lalu jawaban kontekstual dari GPT beserta sitasi dokumen | `rag/STKI_RAG_LLM.ipynb` |
 
 ## Pipeline Preprocessing
 
@@ -59,26 +59,29 @@ Stopword removal memakai NLTK (757 stopword Bahasa Indonesia) dan Sastrawi (seki
 stki-tfidf-vsm/
 ├── README.md
 ├── requirements.txt
-└── lsi-colab/
-    ├── STKI_Boolean_Inverted.ipynb              Bab 1: Boolean Retrieval
-    ├── STKI_Jaccard.ipynb                        Bab 2: Jaccard Similarity
-    ├── STKI_TFIDF_VSM_Final.ipynb               Bab 3 dan 4: TF-IDF dan VSM
-    ├── STKI_TFIDF_Summarization.ipynb            Bab 5: Extractive Summarization
-    ├── STKI_TFIDF_Summarization_Penjelasan.ipynb
-    ├── STKI_MinHash.ipynb                        Bab 6: MinHash dan LSH
-    ├── STKI_RAG_LLM.ipynb                        Bab 7: RAG (IndoBERT + GPT)
-    ├── rag_pipeline.py                           Modul RAG (dipakai notebook & frontend)
-    ├── app.py                                    Frontend chat web (Gradio)
-    ├── Jurnal1.pdf, Jurnal2.pdf, Jurnal3.pdf     Korpus uji (metode 1-6)
-    ├── corpus_pajak/                             Korpus hukum pajak (10 PDF) untuk RAG
+├── lsi-colab/                                   Metode 1-6 (UTS)
+│   ├── STKI_Boolean_Inverted.ipynb              Bab 1: Boolean Retrieval
+│   ├── STKI_Jaccard.ipynb                        Bab 2: Jaccard Similarity
+│   ├── STKI_TFIDF_VSM_Final.ipynb               Bab 3 dan 4: TF-IDF dan VSM
+│   ├── STKI_TFIDF_Summarization.ipynb            Bab 5: Extractive Summarization
+│   ├── STKI_TFIDF_Summarization_Penjelasan.ipynb
+│   ├── STKI_MinHash.ipynb                        Bab 6: MinHash dan LSH
+│   ├── Jurnal1.pdf, Jurnal2.pdf, Jurnal3.pdf     Korpus uji (metode 1-6)
+│   ├── *.png                                      Gambar hasil eksperimen
+│   └── docs/
+│       ├── LAPORAN_UTS_STKI.md                   Laporan lengkap (Bab 1-7)
+│       ├── JAWABAN_SOAL_STKI.md                  Jawaban soal analisis
+│       ├── laporan_minhash_1.3.md
+│       └── rumus.md                              Rangkuman rumus MinHash
+└── rag/                                         Metode 7: RAG (folder khusus)
+    ├── README.md                                 Panduan subsistem RAG
+    ├── STKI_RAG_LLM.ipynb                        Notebook RAG (eksperimen/laporan)
+    ├── rag_pipeline.py                           Modul RAG (chunking, retrieval hybrid, jawab)
+    ├── app.py                                    Frontend chat web (Gradio) lokal
+    ├── laporan_rag_1.0.md                        Alur implementasi RAG
+    ├── corpus_pajak/                             Korpus hukum pajak (10 PDF)
     ├── .env                                       Kunci OPENROUTER_API_KEY (tidak di-commit)
-    ├── *.png                                      Gambar hasil eksperimen
-    └── docs/
-        ├── LAPORAN_UTS_STKI.md                   Laporan lengkap
-        ├── JAWABAN_SOAL_STKI.md                  Jawaban soal analisis
-        ├── laporan_minhash_1.3.md
-        ├── laporan_rag_1.0.md                    Alur implementasi RAG
-        └── rumus.md                              Rangkuman rumus MinHash
+    └── hf-space/                                 Staging deploy Hugging Face Spaces
 ```
 
 ## Prasyarat
@@ -124,8 +127,10 @@ jupyter lab        # atau: jupyter notebook
 | torch | terbaru | Runtime transformer (CPU) untuk RAG |
 | transformers | terbaru | Memuat model IndoBERT |
 | sentence-transformers | terbaru | Embedding kalimat IndoBERT (Sentence-BERT) |
+| rank-bm25 | terbaru | Skor leksikal BM25 (retrieval hybrid RAG) |
 | openai | terbaru | Klien LLM (GPT via OpenRouter) |
 | python-dotenv | terbaru | Membaca kunci API dari berkas `.env` |
+| gradio | terbaru | Frontend chat web RAG |
 | jupyterlab | 4.5 | Lingkungan notebook |
 
 ## Korpus Uji
@@ -136,29 +141,22 @@ Tiga jurnal bertema perpustakaan dan temu kembali informasi:
 2. `Jurnal2.pdf`: Pemanfaatan STKI via OPAC, Poltekkes Sorong (Nanlohy dkk., 2023)
 3. `Jurnal3.pdf`: Strategi Shelving Koleksi, SMAN 2 Trenggalek (Fatoni dan Handayani, 2024)
 
-Metode RAG (notebook ke-7) memakai korpus terpisah di `lsi-colab/corpus_pajak/`: sepuluh dokumen hukum pajak (UU, PMK, Permendagri, dan modul akademik) bertema Pajak Bumi dan Bangunan serta Pajak Kendaraan Bermotor.
+Metode RAG (metode ke-7) memakai korpus terpisah di `rag/corpus_pajak/`: sepuluh dokumen hukum pajak (UU, PMK, Permendagri, dan modul akademik) bertema Pajak Bumi dan Bangunan serta Pajak Kendaraan Bermotor.
 
 ### Menjalankan RAG
 
-Notebook `STKI_RAG_LLM.ipynb` butuh kunci API OpenRouter. Buat berkas `lsi-colab/.env`:
+Seluruh berkas RAG ada di folder **`rag/`**. Detail lengkap di [`rag/README.md`](rag/README.md). Ringkas:
 
 ```bash
-echo "OPENROUTER_API_KEY=sk-or-v1-..." > lsi-colab/.env
+echo "OPENROUTER_API_KEY=sk-or-v1-..." > rag/.env   # kunci OpenRouter
+cd rag
+python app.py     # buka http://127.0.0.1:7860
 ```
 
-Saat pertama dijalankan, model IndoBERT (~500 MB) diunduh otomatis ke `lsi-colab/hf_cache/`. Berkas `.env` dan `hf_cache/` tidak di-commit.
+Saat pertama dijalankan, model IndoBERT (~500 MB) diunduh otomatis ke `rag/hf_cache/`. Berkas `.env` dan `hf_cache/` tidak di-commit.
 
-Tersedia dua cara memakai RAG:
-
-- **Notebook** `STKI_RAG_LLM.ipynb` — untuk eksperimen dan laporan, panggil `jawab("pertanyaan...")`.
-- **Frontend chat (Gradio)** — antarmuka chat web. Jalankan:
-
-  ```bash
-  cd lsi-colab
-  python app.py     # buka http://127.0.0.1:7860
-  ```
-
-  Logika RAG diekstrak ke modul `rag_pipeline.py` yang dipakai bersama oleh notebook dan frontend. Embedding korpus di-cache (`hf_cache/rag_index.npz`) sehingga peluncuran berikutnya cepat.
+**Demo live (cloud):** chat berjalan di Hugging Face Spaces →
+<https://huggingface.co/spaces/raviarnan/asisten-hukum-pajak-rag>
 
 ## Dokumentasi
 

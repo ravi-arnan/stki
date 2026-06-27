@@ -209,17 +209,60 @@ def load_index(rebuild: bool = False, verbose: bool = True):
 
 
 # --------------------------------------------------------------------------- #
-# Retrieval & generation
+# Retrieval hybrid (BM25 leksikal + IndoBERT dense), digabung via RRF
 # --------------------------------------------------------------------------- #
+RRF_K = 60   # konstanta Reciprocal Rank Fusion (semakin besar = perbedaan rank makin halus)
+
+_bm25 = None
+
+
+def _tokenize(teks: str):
+    """Tokenisasi sederhana untuk BM25 (huruf+angka, lowercase).
+
+    Menyatukan singkatan seperti 'PPnBM' -> 'ppnbm' sehingga cocok dengan query.
+    """
+    return re.findall(r"\w+", teks.lower())
+
+
+def get_bm25():
+    """Bangun (sekali) indeks BM25 dari teks korpus."""
+    global _bm25
+    if _bm25 is None:
+        from rank_bm25 import BM25Okapi
+        korpus, _ = load_index(verbose=False)
+        _bm25 = BM25Okapi([_tokenize(p["teks"]) for p in korpus])
+    return _bm25
+
+
 def retrieve(query: str, top_k: int = TOP_K):
+    """Retrieval hybrid: gabungkan ranking dense (cosine IndoBERT) & leksikal (BM25).
+
+    Dense menangkap makna semantik; BM25 menangkap kata/singkatan/angka secara persis
+    (mis. 'PPnBM', '2025'). Keduanya digabung dengan Reciprocal Rank Fusion (RRF).
+    Skor yang ditampilkan tetap cosine similarity (mudah ditafsirkan).
+    """
     korpus, matriks = load_index(verbose=False)
+
+    # 1) skor dense (cosine)
     q = embed(query)[0]
-    skor = matriks @ q / (np.linalg.norm(matriks, axis=1) * np.linalg.norm(q) + 1e-9)
-    urut = np.argsort(-skor)[:top_k]
+    cos = matriks @ q / (np.linalg.norm(matriks, axis=1) * np.linalg.norm(q) + 1e-9)
+
+    # 2) skor leksikal (BM25)
+    lex = np.asarray(get_bm25().get_scores(_tokenize(query)), dtype=float)
+
+    # 3) Reciprocal Rank Fusion: setiap dokumen dapat 1/(K+rank) dari tiap daftar
+    rank_cos = np.empty(len(cos), dtype=int)
+    rank_cos[np.argsort(-cos)] = np.arange(len(cos))
+    rank_lex = np.empty(len(lex), dtype=int)
+    rank_lex[np.argsort(-lex)] = np.arange(len(lex))
+    rrf = 1.0 / (RRF_K + rank_cos) + 1.0 / (RRF_K + rank_lex)
+
+    urut = np.argsort(-rrf)[:top_k]
     hasil = []
     for rank, idx in enumerate(urut, start=1):
         item = dict(korpus[idx])
-        item["skor"] = float(skor[idx])
+        item["skor"] = float(cos[idx])           # tampilkan cosine (interpretable)
+        item["skor_bm25"] = float(lex[idx])
         item["rank"] = rank
         hasil.append(item)
     return hasil
