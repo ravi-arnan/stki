@@ -72,15 +72,43 @@ def ekstrak_teks(path: Path) -> str:
     return "\n".join(bagian)
 
 
+# Pola footer/header PDF pemerintah yang ikut ter-ekstrak
+_FOOTER_PDF = re.compile(
+    r"https?://\S+"                               # URL penuh https://...
+    r"|\b\w+\.(?:go|ac|co|or|net|com)\.id\b"      # domain .go.id / .ac.id dll
+    r"|\bjdih\.\S*"                               # jdih. apa pun (sering footer Kemenkeu)
+    r"|\bperaturan\.\S*"                          # peraturan.bpk.go.id dll
+    r"|\bHalaman\s+\d+\s+dari\s+\d+"              # "Halaman X dari Y"
+    r"|^\s*-\s*\d+\s*-\s*$"                       # nomor halaman "-12-"
+    r"|\bwww\.\S+",                               # www.xxx.yyy
+    re.IGNORECASE | re.MULTILINE,
+)
+
+
 def bersihkan(teks: str) -> str:
+    # 1. Sambung kata yg terputus hyphen di AKHIR baris: "Berbasis-\nBaterai" → "BerbasisBaterai"
     teks = re.sub(r"-\s*\n\s*", "", teks)
+    # 2. Hyphen di AWAL baris berikut: "Berbasis\n-Baterai" → "Berbasis Baterai"
+    teks = re.sub(r"\s*\n\s*-(?=\w)", " ", teks)
+    # 3. Ganti sisa newline dengan spasi
     teks = re.sub(r"\s*\n\s*", " ", teks)
+    # 4. Hapus footer/URL PDF pemerintah
+    teks = _FOOTER_PDF.sub(" ", teks)
+    # 5. Hapus sequence titik-titik isian formulir: "Rp ............" → "Rp"
+    #    dan marker sel tabel berbasis kurung: "[21 [3] [41 f5l" → ""
+    teks = re.sub(r"\.{3,}", " ", teks)           # 3+ titik berurutan → spasi
+    teks = re.sub(r"\[[\w\s]*\]", " ", teks)      # [xx] bracket tabel → spasi
+    # 6. Rapikan spasi ganda
     teks = re.sub(r"\s{2,}", " ", teks)
-    return teks.strip()
+    # 7. Hapus sisa titik/tanda baca tergantung di ujung
+    teks = re.sub(r"[.\s]+$", "", teks).strip()
+    return teks
 
 
 def pisah_kalimat(teks: str):
-    potongan = re.split(r"(?<=[.;])\s+(?=[A-Z(0-9])", teks)
+    # Hanya split pada titik/titik-koma yg diikuti spasi + huruf kapital / digit / '('
+    # Proteksi: karakter sebelum titik harus bukan digit (jangan split "Rp1.500")
+    potongan = re.split(r"(?<=[^\d])(?<=[.;])\s+(?=[A-Z(0-9])", teks)
     return [p.strip() for p in potongan if p.strip()]
 
 
