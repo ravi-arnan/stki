@@ -98,6 +98,8 @@ def bersihkan(teks: str) -> str:
     #    dan marker sel tabel berbasis kurung: "[21 [3] [41 f5l" → ""
     teks = re.sub(r"\.{3,}", " ", teks)           # 3+ titik berurutan → spasi
     teks = re.sub(r"\[[\w\s]*\]", " ", teks)      # [xx] bracket tabel → spasi
+    # 5b. Hapus glyph bullet/middle-dot nyasar dari PDF: "KBL· Berbasis ·Baterai" → "KBL Berbasis Baterai"
+    teks = re.sub(r"[·•∙‧]", " ", teks)
     # 6. Rapikan spasi ganda
     teks = re.sub(r"\s{2,}", " ", teks)
     # 7. Hapus sisa titik/tanda baca tergantung di ujung
