@@ -72,6 +72,12 @@ def ekstrak_teks(path: Path) -> str:
     return "\n".join(bagian)
 
 
+# Glyph noise dari ekstraksi/OCR PDF (bullet, lingkaran, checkmark, ellipsis isian,
+# area Private-Use font simbol, dan huruf Cyrillic garbage OCR pada tanda tangan/tanggal).
+# Simbol matematika bermakna (× − ≤ ≥ ∑) SENGAJA tidak masuk sini — dipertahankan.
+_NOISE_GLYPH = re.compile("[·•∙‧⚫●○◦▪✓…-Ѐ-ӿ]")
+
+
 # Pola footer/header PDF pemerintah yang ikut ter-ekstrak
 _FOOTER_PDF = re.compile(
     r"https?://\S+"                               # URL penuh https://...
@@ -98,8 +104,13 @@ def bersihkan(teks: str) -> str:
     #    dan marker sel tabel berbasis kurung: "[21 [3] [41 f5l" → ""
     teks = re.sub(r"\.{3,}", " ", teks)           # 3+ titik berurutan → spasi
     teks = re.sub(r"\[[\w\s]*\]", " ", teks)      # [xx] bracket tabel → spasi
-    # 5b. Hapus glyph bullet/middle-dot nyasar dari PDF: "KBL· Berbasis ·Baterai" → "KBL Berbasis Baterai"
-    teks = re.sub(r"[·•∙‧]", " ", teks)
+    # 5b. Soft hyphen (hyphenation tak terlihat) → buang; curly-quote → lurus
+    teks = teks.replace("­", "")
+    teks = (teks.replace("“", '"').replace("”", '"')
+                .replace("‘", "'").replace("’", "'"))
+    # 5c. Buang glyph noise OCR (bullet/lingkaran/checkmark/ellipsis/PUA/Cyrillic).
+    #     Simbol matematika (× − ≤ ∑) tetap dipertahankan.
+    teks = _NOISE_GLYPH.sub(" ", teks)
     # 6. Rapikan spasi ganda
     teks = re.sub(r"\s{2,}", " ", teks)
     # 7. Hapus sisa titik/tanda baca tergantung di ujung
@@ -111,7 +122,18 @@ def pisah_kalimat(teks: str):
     # Hanya split pada titik/titik-koma yg diikuti spasi + huruf kapital / digit / '('
     # Proteksi: karakter sebelum titik harus bukan digit (jangan split "Rp1.500")
     potongan = re.split(r"(?<=[^\d])(?<=[.;])\s+(?=[A-Z(0-9])", teks)
-    return [p.strip() for p in potongan if p.strip()]
+    potongan = [p.strip() for p in potongan if p.strip()]
+    # Marker seksi/enumerasi ("D.", "1.", "II.") jangan dihitung 1 kalimat -> gabung ke kalimat berikut
+    hasil, prefix = [], ""
+    for p in potongan:
+        if re.fullmatch(r"[A-Za-z0-9]{1,3}\.|[IVXLCDM]{1,5}\.", p):
+            prefix += p + " "
+        else:
+            hasil.append((prefix + p).strip())
+            prefix = ""
+    if prefix:
+        hasil.append(prefix.strip())
+    return hasil
 
 
 def _pecah_kata(teks: str, maks=MAX_KATA_CHUNK):
