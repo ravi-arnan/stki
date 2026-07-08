@@ -31,3 +31,6 @@ hf_cache/
 # HF Space staging (korpus & cache tidak diduplikasi)
 rag/hf-space/corpus_pajak/
 rag/hf-space/hf_cache/
+
+# LibreOffice/OpenOffice lock files
+.~lock.*#
