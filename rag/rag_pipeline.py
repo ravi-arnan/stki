@@ -10,6 +10,7 @@ Modul ini berisi logika inti RAG agar dapat dipakai ulang oleh notebook
 Kunci API dibaca dari berkas `.env` (variabel OPENROUTER_API_KEY) dan tidak
 boleh di-commit.
 """
+
 from __future__ import annotations
 
 import os
@@ -27,28 +28,62 @@ BASE_DIR = Path(__file__).resolve().parent
 os.environ.setdefault("HF_HOME", str(BASE_DIR / "hf_cache"))
 
 # ---- Konstanta ----
-KORPUS_DIR        = BASE_DIR / "corpus_pajak"
-CACHE_PATH        = BASE_DIR / "hf_cache" / "rag_index_v2.npz"   # cache embedding korpus (v2: per-halaman)
-MODEL_EMBED       = "firqaaa/indo-sentence-bert-base"          # IndoBERT (Sentence-BERT)
-MODEL_LLM         = "openai/gpt-4o-mini"                        # GPT via OpenRouter
-TOP_K             = 5
-KALIMAT_PER_CHUNK = 4
-MAX_KATA_CHUNK    = 160
-MIN_CHARS         = 40
-WORDY_MIN         = 0.60
+KORPUS_DIR = BASE_DIR / "corpus_pajak"
+CACHE_PATH = (
+    BASE_DIR / "hf_cache" / "rag_index_v2.npz"
+)  # cache embedding korpus (v2: per-halaman)
+MODEL_EMBED = "firqaaa/indo-sentence-bert-base"  # IndoBERT (Sentence-BERT)
+MODEL_LLM = "openai/gpt-4o-mini"  # GPT via OpenRouter
+TOP_K = 5
+KALIMAT_PER_CHUNK = 6
+MAX_KATA_CHUNK = 160
+MIN_CHARS = 40
+WORDY_MIN = 0.60
 
 # nama_pdf_asli: (doc_id, label sumber, nama_file tampilan)
 PETA_DOKUMEN = {
-    "85uu012.pdf":                        ("D1",  "UU 12/1985 - PBB",                         "D1_UU_PBB_1985.pdf"),
-    "UU Nomor 12 Tahun 1985.pdf":         ("D2",  "UU 12/1985 - PBB (salinan)",               "D2_UU_PBB_1985.pdf"),
-    "2024pmkeuangan085.pdf":              ("D3",  "PMK 85/2024 - Penilaian NJOP PBB-P2",      "D3_PMK_85_2024_NJOP.pdf"),
-    "234~PMK.03~2022Per.pdf":             ("D4",  "PMK 234/2022 - PBB pertambangan/kehutanan","D4_PMK_234_2022_PBB.pdf"),
-    "PAJA323304-M1.pdf":                  ("D5",  "Modul PBB Universitas Terbuka",            "D5_Modul_PBB_UT.pdf"),
-    "Permendagri Nomor 7 Tahun 2025.pdf": ("D6",  "Permendagri 7/2025 - PKB & BBN-KB 2025",   "D6_Permendagri_7_2025_PKB.pdf"),
-    "Permendagri No 8 Tahun 2024_OCR.pdf":("D7",  "Permendagri 8/2024 - PKB & BBN-KB 2024",   "D7_Permendagri_8_2024_PKB.pdf"),
-    "Permendagri Nomor 6 Tahun 2023.pdf": ("D8",  "Permendagri 6/2023 - PKB & BBN-KB 2023",   "D8_Permendagri_6_2023_PKB.pdf"),
-    "2024pmkeuangan008.pdf":              ("D9",  "PMK 8/2024 - PPN Kendaraan Listrik (EV)",  "D9_PMK_8_2024_EV.pdf"),
-    "5~PMK.010~2022Per.pdf":              ("D10", "PMK 5/2022 - PPnBM Kendaraan Bermotor",     "D10_PMK_5_2022_PPnBM.pdf"),
+    "85uu012.pdf": ("D1", "UU 12/1985 - PBB", "D1_UU_PBB_1985.pdf"),
+    "UU Nomor 12 Tahun 1985.pdf": (
+        "D2",
+        "UU 12/1985 - PBB (salinan)",
+        "D2_UU_PBB_1985.pdf",
+    ),
+    "2024pmkeuangan085.pdf": (
+        "D3",
+        "PMK 85/2024 - Penilaian NJOP PBB-P2",
+        "D3_PMK_85_2024_NJOP.pdf",
+    ),
+    "234~PMK.03~2022Per.pdf": (
+        "D4",
+        "PMK 234/2022 - PBB pertambangan/kehutanan",
+        "D4_PMK_234_2022_PBB.pdf",
+    ),
+    "PAJA323304-M1.pdf": ("D5", "Modul PBB Universitas Terbuka", "D5_Modul_PBB_UT.pdf"),
+    "Permendagri Nomor 7 Tahun 2025.pdf": (
+        "D6",
+        "Permendagri 7/2025 - PKB & BBN-KB 2025",
+        "D6_Permendagri_7_2025_PKB.pdf",
+    ),
+    "Permendagri No 8 Tahun 2024_OCR.pdf": (
+        "D7",
+        "Permendagri 8/2024 - PKB & BBN-KB 2024",
+        "D7_Permendagri_8_2024_PKB.pdf",
+    ),
+    "Permendagri Nomor 6 Tahun 2023.pdf": (
+        "D8",
+        "Permendagri 6/2023 - PKB & BBN-KB 2023",
+        "D8_Permendagri_6_2023_PKB.pdf",
+    ),
+    "2024pmkeuangan008.pdf": (
+        "D9",
+        "PMK 8/2024 - PPN Kendaraan Listrik (EV)",
+        "D9_PMK_8_2024_EV.pdf",
+    ),
+    "5~PMK.010~2022Per.pdf": (
+        "D10",
+        "PMK 5/2022 - PPnBM Kendaraan Bermotor",
+        "D10_PMK_5_2022_PPnBM.pdf",
+    ),
 }
 
 SISTEM_PROMPT = (
@@ -65,6 +100,7 @@ SISTEM_PROMPT = (
 # --------------------------------------------------------------------------- #
 def ekstrak_teks(path: Path) -> str:
     import pdfplumber
+
     bagian = []
     with pdfplumber.open(path) as pdf:
         for halaman in pdf.pages:
@@ -80,13 +116,13 @@ _NOISE_GLYPH = re.compile("[·•∙‧⚫●○◦▪✓…-Ѐ-ӿ]")
 
 # Pola footer/header PDF pemerintah yang ikut ter-ekstrak
 _FOOTER_PDF = re.compile(
-    r"https?://\S+"                               # URL penuh https://...
-    r"|\b\w+\.(?:go|ac|co|or|net|com)\.id\b"      # domain .go.id / .ac.id dll
-    r"|\bjdih\.\S*"                               # jdih. apa pun (sering footer Kemenkeu)
-    r"|\bperaturan\.\S*"                          # peraturan.bpk.go.id dll
-    r"|\bHalaman\s+\d+\s+dari\s+\d+"              # "Halaman X dari Y"
-    r"|^\s*-\s*\d+\s*-\s*$"                       # nomor halaman "-12-"
-    r"|\bwww\.\S+",                               # www.xxx.yyy
+    r"https?://\S+"  # URL penuh https://...
+    r"|\b\w+\.(?:go|ac|co|or|net|com)\.id\b"  # domain .go.id / .ac.id dll
+    r"|\bjdih\.\S*"  # jdih. apa pun (sering footer Kemenkeu)
+    r"|\bperaturan\.\S*"  # peraturan.bpk.go.id dll
+    r"|\bHalaman\s+\d+\s+dari\s+\d+"  # "Halaman X dari Y"
+    r"|^\s*-\s*\d+\s*-\s*$"  # nomor halaman "-12-"
+    r"|\bwww\.\S+",  # www.xxx.yyy
     re.IGNORECASE | re.MULTILINE,
 )
 
@@ -102,12 +138,11 @@ def bersihkan(teks: str) -> str:
     teks = _FOOTER_PDF.sub(" ", teks)
     # 5. Hapus sequence titik-titik isian formulir: "Rp ............" → "Rp"
     #    dan marker sel tabel berbasis kurung: "[21 [3] [41 f5l" → ""
-    teks = re.sub(r"\.{3,}", " ", teks)           # 3+ titik berurutan → spasi
-    teks = re.sub(r"\[[\w\s]*\]", " ", teks)      # [xx] bracket tabel → spasi
+    teks = re.sub(r"\.{3,}", " ", teks)  # 3+ titik berurutan → spasi
+    teks = re.sub(r"\[[\w\s]*\]", " ", teks)  # [xx] bracket tabel → spasi
     # 5b. Soft hyphen (hyphenation tak terlihat) → buang; curly-quote → lurus
     teks = teks.replace("­", "")
-    teks = (teks.replace("“", '"').replace("”", '"')
-                .replace("‘", "'").replace("’", "'"))
+    teks = teks.replace("“", '"').replace("”", '"').replace("‘", "'").replace("’", "'")
     # 5c. Buang glyph noise OCR (bullet/lingkaran/checkmark/ellipsis/PUA/Cyrillic).
     #     Simbol matematika (× − ≤ ∑) tetap dipertahankan.
     teks = _NOISE_GLYPH.sub(" ", teks)
@@ -138,7 +173,7 @@ def pisah_kalimat(teks: str):
 
 def _pecah_kata(teks: str, maks=MAX_KATA_CHUNK):
     kata = teks.split()
-    return [" ".join(kata[i:i + maks]) for i in range(0, len(kata), maks)]
+    return [" ".join(kata[i : i + maks]) for i in range(0, len(kata), maks)]
 
 
 def chunk_dokumen(teks: str):
@@ -154,12 +189,15 @@ def chunk_dokumen(teks: str):
     for kal in kalimat:
         nk = len(kal.split())
         if nk > MAX_KATA_CHUNK:
-            flush(); buf, buf_kata = [], 0
+            flush()
+            buf, buf_kata = [], 0
             chunks.extend(s for s in _pecah_kata(kal) if len(s) >= MIN_CHARS)
             continue
         if len(buf) >= KALIMAT_PER_CHUNK or buf_kata + nk > MAX_KATA_CHUNK:
-            flush(); buf, buf_kata = [], 0
-        buf.append(kal); buf_kata += nk
+            flush()
+            buf, buf_kata = [], 0
+        buf.append(kal)
+        buf_kata += nk
     flush()
     return chunks
 
@@ -168,7 +206,9 @@ def rasio_kata(teks: str) -> float:
     tok = teks.split()
     if not tok:
         return 0.0
-    wordy = [t for t in tok if sum(c.isalpha() for c in t) >= 0.6 * len(t) and len(t) >= 3]
+    wordy = [
+        t for t in tok if sum(c.isalpha() for c in t) >= 0.6 * len(t) and len(t) >= 3
+    ]
     return len(wordy) / len(tok)
 
 
@@ -179,8 +219,9 @@ def build_korpus():
     asalnya (untuk provenance "hal. X" pada sitasi).
     """
     import pdfplumber
+
     korpus = []
-    urut = {}   # penghitung chunk per dokumen
+    urut = {}  # penghitung chunk per dokumen
     for nama_pdf, (doc_id, sumber, nama_file) in PETA_DOKUMEN.items():
         with pdfplumber.open(KORPUS_DIR / nama_pdf) as pdf:
             for halaman, page in enumerate(pdf.pages, start=1):
@@ -192,14 +233,16 @@ def build_korpus():
                         continue
                     j = urut.get(doc_id, 0)
                     urut[doc_id] = j + 1
-                    korpus.append({
-                        "chunk_id": f"{doc_id}#{j}",
-                        "doc_id": doc_id,
-                        "sumber": sumber,
-                        "nama_file": nama_file,
-                        "halaman": halaman,
-                        "teks": passage,
-                    })
+                    korpus.append(
+                        {
+                            "chunk_id": f"{doc_id}#{j}",
+                            "doc_id": doc_id,
+                            "sumber": sumber,
+                            "nama_file": nama_file,
+                            "halaman": halaman,
+                            "teks": passage,
+                        }
+                    )
     return korpus
 
 
@@ -213,8 +256,10 @@ def get_encoder():
     global _encoder
     if _encoder is None:
         import torch
+
         torch.set_num_threads(int(_N_THREAD))
         from sentence_transformers import SentenceTransformer
+
         _encoder = SentenceTransformer(MODEL_EMBED, device="cpu")
     return _encoder
 
@@ -222,8 +267,9 @@ def get_encoder():
 def embed(texts, batch_size=16):
     if isinstance(texts, str):
         texts = [texts]
-    return get_encoder().encode(texts, batch_size=batch_size,
-                                normalize_embeddings=True, show_progress_bar=False)
+    return get_encoder().encode(
+        texts, batch_size=batch_size, normalize_embeddings=True, show_progress_bar=False
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -263,7 +309,9 @@ def load_index(rebuild: bool = False, verbose: bool = True):
 # --------------------------------------------------------------------------- #
 # Retrieval hybrid (BM25 leksikal + IndoBERT dense), digabung via RRF
 # --------------------------------------------------------------------------- #
-RRF_K = 60   # konstanta Reciprocal Rank Fusion (semakin besar = perbedaan rank makin halus)
+RRF_K = (
+    60  # konstanta Reciprocal Rank Fusion (semakin besar = perbedaan rank makin halus)
+)
 
 _bm25 = None
 
@@ -291,6 +339,7 @@ def get_bm25():
     global _bm25
     if _bm25 is None:
         from rank_bm25 import BM25Okapi
+
         korpus, _ = load_index(verbose=False)
         _bm25 = BM25Okapi([_tokenize(p["sumber"] + " " + p["teks"]) for p in korpus])
     return _bm25
@@ -323,7 +372,7 @@ def retrieve(query: str, top_k: int = TOP_K):
     hasil = []
     for rank, idx in enumerate(urut, start=1):
         item = dict(korpus[idx])
-        item["skor"] = float(cos[idx])           # tampilkan cosine (interpretable)
+        item["skor"] = float(cos[idx])  # tampilkan cosine (interpretable)
         item["skor_bm25"] = float(lex[idx])
         item["rank"] = rank
         hasil.append(item)
@@ -338,6 +387,7 @@ def get_client():
     if _client is None:
         from dotenv import load_dotenv
         from openai import OpenAI
+
         load_dotenv(BASE_DIR / ".env")
         api_key = os.environ.get("OPENROUTER_API_KEY")
         if not api_key:
@@ -359,12 +409,15 @@ def jawab(query: str, top_k: int = TOP_K) -> dict:
     passages = retrieve(query, top_k)
     pesan = [
         {"role": "system", "content": SISTEM_PROMPT},
-        {"role": "user",
-         "content": f"KONTEKS DOKUMEN:\n{_bangun_konteks(passages)}\n\n"
-                    f"PERTANYAAN: {query}\n\nJAWABAN:"},
+        {
+            "role": "user",
+            "content": f"KONTEKS DOKUMEN:\n{_bangun_konteks(passages)}\n\n"
+            f"PERTANYAAN: {query}\n\nJAWABAN:",
+        },
     ]
     resp = get_client().chat.completions.create(
-        model=MODEL_LLM, messages=pesan, temperature=0.2, max_tokens=500)
+        model=MODEL_LLM, messages=pesan, temperature=0.2, max_tokens=500
+    )
     return {
         "query": query,
         "jawaban": resp.choices[0].message.content.strip(),
@@ -375,6 +428,7 @@ def jawab(query: str, top_k: int = TOP_K) -> dict:
 if __name__ == "__main__":
     # Uji cepat dari terminal: python rag_pipeline.py "pertanyaan..."
     import sys
+
     load_index()
     q = " ".join(sys.argv[1:]) or "Apa objek yang dikenakan Pajak Bumi dan Bangunan?"
     hasil = jawab(q)
